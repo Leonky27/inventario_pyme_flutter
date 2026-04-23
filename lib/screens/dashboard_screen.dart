@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import '../models/producto.dart';
 import '../services/n8n_service.dart';
+import 'historial_movimientos_screen.dart';
 import 'movimiento_screen.dart';
-import 'data_management_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -16,26 +15,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   TextEditingController searchController = TextEditingController();
   bool isSincronizando = false;
   final N8nService n8nService = N8nService();
-  late Timer _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _cargarProductos();
     searchController.addListener(_filtrarProductos);
-    
-    // 🔄 Polling automático cada 30 segundos para detectar cambios en el Sheet
-    _refreshTimer = Timer.periodic(Duration(seconds: 10), (_) {
-      if (mounted) {
-        print('⏱️ Sincronización automática...');
-        _cargarProductos();
-      }
-    });
   }
 
   @override
   void dispose() {
-    _refreshTimer.cancel();
     searchController.dispose();
     super.dispose();
   }
@@ -151,51 +140,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return ids.reduce((a, b) => a > b ? a : b) + 1;
   }
 
-  void _escanearProducto() async {
-    TextEditingController skuController = TextEditingController();
-    String? sku = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Ingresar SKU'),
-        content: TextField(
-          controller: skuController,
-          decoration: InputDecoration(hintText: 'Escribe el SKU'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, skuController.text),
-            child: Text('Buscar'),
-          ),
-        ],
-      ),
-    );
-    if (sku != null && sku.isNotEmpty) {
-      final prod = productosFiltrados.firstWhere(
-        (p) => p.sku == sku,
-        orElse: () => Producto(
-          id: '0',
-          nombre: '',
-          categoria: '',
-          sku: '',
-          cantidad: 0,
-          stockMinimo: 0,
-        ),
-      );
-      if (prod.id != '0') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => MovimientoScreen(producto: prod)),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Producto no encontrado')),
-        );
-      }
-    }
+  Color _stockColor(Producto producto) {
+    final diferencia = producto.cantidad - producto.stockMinimo;
+    if (diferencia < 0) return Colors.red;
+    if (diferencia <= 10) return Colors.amber;
+    return Colors.green;
+  }
+
+  String _stockLabel(Producto producto) {
+    final diferencia = producto.cantidad - producto.stockMinimo;
+    if (diferencia < 0) return '¡Bajo stock!';
+    if (diferencia <= 10) return 'Stock por agotarse';
+    return 'Stock saludable';
   }
 
   @override
@@ -223,7 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: TextField(
               controller: searchController,
               decoration: InputDecoration(
-                hintText: 'Buscar por SKU o nombre',
+                hintText: 'Buscar por Nombre o SKU',
                 prefixIcon: Icon(Icons.search, color: Colors.blue),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 filled: true,
@@ -232,17 +188,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                print('👆 Actualizando manualmente (Pull-to-Refresh)...');
-                await _cargarProductos();
-              },
-              child: ListView.builder(
-                itemCount: productosFiltrados.length,
-                itemBuilder: (context, index) {
+            child: isSincronizando && productosFiltrados.isEmpty
+                ? Center(child: CircularProgressIndicator())
+                : productosFiltrados.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No hay productos para mostrar',
+                          style: TextStyle(fontSize: 16, color: Colors.black54),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          print('👆 Actualizando manualmente (Pull-to-Refresh)...');
+                          await _cargarProductos();
+                        },
+                        child: ListView.builder(
+                          itemCount: productosFiltrados.length,
+                          itemBuilder: (context, index) {
                 Producto prod = productosFiltrados[index];
                 return Dismissible(
-                  key: Key(prod.id),
+                  key: ValueKey('${prod.id}_${prod.sku}_$index'),
                   direction: DismissDirection.horizontal,
                   onDismissed: (direction) {
                     if (direction == DismissDirection.endToStart) {
@@ -272,8 +237,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('${prod.cantidad}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: prod.cantidad >= prod.stockMinimo ? Colors.green[700] : Colors.red[700])),
-                        if (prod.cantidad < prod.stockMinimo) Text('¡Bajo stock!', style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold)),
+                        Text('${prod.cantidad}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _stockColor(prod))),
+                        Text(_stockLabel(prod), style: TextStyle(fontSize: 10, color: _stockColor(prod), fontWeight: FontWeight.bold)),
                       ],
                     ),
                     onTap: () => Navigator.push(
@@ -288,8 +253,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 );
               },
-              ),
-            ),
+                        ),
+                      ),
           ),
           Container(
             padding: EdgeInsets.all(12),
@@ -304,20 +269,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _escanearProducto,
-        tooltip: 'Buscar por SKU',
-        backgroundColor: Colors.blue,
-        child: Icon(Icons.search, color: Colors.white),
-      ),
       bottomNavigationBar: BottomNavigationBar(
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'Inventario'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Historial'),
         ],
         onTap: (index) {
           if (index == 1) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => DataManagementScreen()));
+            Navigator.push(context, MaterialPageRoute(builder: (context) => HistorialMovimientosScreen()));
           }
         },
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/producto.dart';
+import '../services/historial_movimientos_service.dart';
 import '../services/n8n_service.dart';
 
 class MovimientoScreen extends StatefulWidget {
@@ -62,6 +63,14 @@ class _MovimientoScreenState extends State<MovimientoScreen> {
         cantidad: cantidad,
         tipo: esEntrada ? 'entrada' : 'salida',
       );
+
+      HistorialMovimientosService.registrarMovimiento(
+        productoNombre: widget.producto!.nombre,
+        sku: widget.producto!.sku,
+        accion: esEntrada ? 'entrada' : 'salida',
+        cantidad: cantidad,
+      );
+
       setState(() => isSincronizando = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(esEntrada ? 'Entrada registrada' : 'Salida registrada')),
