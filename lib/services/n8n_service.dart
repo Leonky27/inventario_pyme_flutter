@@ -1,15 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/producto.dart';
+import 'auth_service.dart';
 
 class N8nService {
   // Reemplaza con tus URLs reales de n8n
   final String addProductUrl =
-      'https://stevenpajarol2.app.n8n.cloud/webhook/agregar-producto'; // Webhook para agregar nuevo producto
+      'http://localhost:5678/webhook/crear-producto'; // Webhook para agregar nuevo producto
+  final String updateProductUrl =
+      'https://stevenpajarol2.app.n8n.cloud/webhook/actualizar-producto'; // Webhook para actualizar producto
+  final String deleteProductUrl =
+      'https://stevenpajarol2.app.n8n.cloud/webhook/eliminar-producto'; // Webhook para eliminar producto
   final String updateStockUrl =
       'https://stevenpajarol2.app.n8n.cloud/webhook/inventario-pyme'; // Webhook para actualizar stock (entrada/salida)
   final String getProductsUrl =
-      'https://stevenpajarol2.app.n8n.cloud/webhook/obtener-datos'; // Webhook para obtener productos del Sheet
+      'http://localhost:5678/webhook/obtener-datos'; // Webhook para obtener productos del Sheet
 
   Future<List<Producto>> obtenerProductos() async {
     try {
@@ -68,13 +73,13 @@ class N8nService {
     try {
       final body = jsonEncode(producto.toJson());
       print('=================================');
-      print('📤 ENVIANDO ACTUALIZACIÓN A N8N');
-      print('URL: $updateStockUrl');
+      print('📤 ENVIANDO ACTUALIZACIÓN DE PRODUCTO A N8N');
+      print('URL: $updateProductUrl');
       print('PAYLOAD: $body');
       print('=================================');
 
-      final response = await http.post(
-        Uri.parse(updateStockUrl),
+      final response = await http.put(
+        Uri.parse(updateProductUrl),
         headers: {'Content-Type': 'application/json'},
         body: body,
       );
@@ -89,7 +94,7 @@ class N8nService {
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      print('❌ ERROR EN ACTUALIZAR: $e');
+      print('❌ ERROR EN ACTUALIZAR PRODUCTO: $e');
       rethrow;
     }
   }
@@ -98,9 +103,11 @@ class N8nService {
     required String id,
     required int cantidad,
     required String tipo,
+    int? usuarioId,
   }) async {
     try {
-      final payload = {'id': id, 'cantidad': cantidad, 'tipo': tipo};
+      final int actualUsuarioId = usuarioId ?? AuthService().currentUser?.id ?? 1;
+      final payload = {'id': id, 'cantidad': cantidad, 'tipo': tipo, 'Usuario_id': actualUsuarioId};
       final body = jsonEncode(payload);
       print('=================================');
       print('📤 ENVIANDO MOVIMIENTO DE STOCK');
@@ -154,16 +161,28 @@ class N8nService {
   }
 
   Future<void> eliminarProducto(String id) async {
-    // Asumir que eliminar es actualizar cantidad a 0
-    Producto prod = Producto(
-      id: id,
-      nombre: '',
-      categoria: '',
-      sku: '',
-      cantidad: 0,
-      stockMinimo: 0,
-    );
-    await actualizarProducto(prod);
+    try {
+      final url = '$deleteProductUrl?id=$id';
+      print('=================================');
+      print('📤 ENVIANDO ELIMINACIÓN DE PRODUCTO A N8N');
+      print('URL: $url');
+      print('=================================');
+
+      final response = await http.delete(Uri.parse(url));
+
+      print('=================================');
+      print('📥 RESPUESTA DE N8N');
+      print('Status: ${response.statusCode}');
+      print('Body: ${response.body}');
+      print('=================================');
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      print('❌ ERROR EN ELIMINAR PRODUCTO: $e');
+      rethrow;
+    }
   }
 
   Future<List<String>> obtenerErrores() async {

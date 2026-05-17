@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(MyApp());
@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
       ),
 
       themeMode: ThemeMode.light, // Modo claro para mejor legibilidad
-      home: DashboardScreen(),
+      home: LoginScreen(),
     );
   }
 }

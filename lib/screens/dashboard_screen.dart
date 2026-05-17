@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/producto.dart';
 import '../services/n8n_service.dart';
+import '../services/auth_service.dart';
 import 'historial_movimientos_screen.dart';
 import 'movimiento_screen.dart';
+import 'login_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -141,6 +143,94 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _editarProducto(Producto producto) async {
+    TextEditingController nombreController = TextEditingController(text: producto.nombre);
+    TextEditingController categoriaController = TextEditingController(text: producto.categoria);
+    TextEditingController skuController = TextEditingController(text: producto.sku);
+    TextEditingController cantidadController = TextEditingController(text: producto.cantidad.toString());
+    TextEditingController stockMinimoController = TextEditingController(text: producto.stockMinimo.toString());
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Editar Producto'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nombreController,
+                decoration: InputDecoration(labelText: 'Nombre'),
+              ),
+              TextField(
+                controller: categoriaController,
+                decoration: InputDecoration(labelText: 'Categoría'),
+              ),
+              TextField(
+                controller: skuController,
+                decoration: InputDecoration(labelText: 'SKU'),
+              ),
+              TextField(
+                controller: cantidadController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: 'Cantidad'),
+              ),
+              TextField(
+                controller: stockMinimoController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: 'Stock Mínimo'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              String nombre = nombreController.text;
+              String categoria = categoriaController.text;
+              String sku = skuController.text;
+              int cantidad = int.tryParse(cantidadController.text) ?? 0;
+              int stockMinimo = int.tryParse(stockMinimoController.text) ?? 0;
+              if (nombre.isNotEmpty && sku.isNotEmpty) {
+                Producto actualizado = Producto(
+                  id: producto.id,
+                  nombre: nombre,
+                  categoria: categoria.isNotEmpty ? categoria : 'General',
+                  sku: sku,
+                  cantidad: cantidad,
+                  stockMinimo: stockMinimo,
+                  ultimaActualizacion: DateTime.now().toIso8601String(),
+                );
+                setState(() => isSincronizando = true);
+                try {
+                  await n8nService.actualizarProducto(actualizado);
+                  if (mounted) setState(() => isSincronizando = false);
+                  _cargarProductos(); // Recargar lista
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Producto actualizado')));
+                } catch (error) {
+                  if (mounted) setState(() => isSincronizando = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error al actualizar producto: $error'),
+                    ),
+                  );
+                }
+              }
+            },
+            child: Text('Actualizar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   int _getNextId() {
     if (productos.isEmpty) return 1;
     final ids = productos
@@ -182,6 +272,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: isSincronizando ? Colors.yellow : Colors.green,
             ),
             onPressed: _cargarProductos,
+          ),
+          IconButton(
+            icon: Icon(Icons.logout),
+            tooltip: 'Cerrar sesión',
+            onPressed: () {
+              AuthService().logout();
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen()),
+              );
+            },
           ),
         ],
       ),
@@ -235,17 +336,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('Producto eliminado')),
                               );
+                            } else if (direction == DismissDirection.startToEnd) {
+                              // Editar
+                              _editarProducto(prod);
                             }
                           },
                           background: Container(
-                            color: Colors.red,
-                            alignment: Alignment.centerRight,
-                            child: Icon(Icons.delete),
-                          ),
-                          secondaryBackground: Container(
                             color: Colors.blue,
                             alignment: Alignment.centerLeft,
                             child: Icon(Icons.edit),
+                          ),
+                          secondaryBackground: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            child: Icon(Icons.delete),
                           ),
                           child: ListTile(
                             title: Text(

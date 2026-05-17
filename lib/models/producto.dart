@@ -26,28 +26,36 @@ class Producto {
   factory Producto.fromJson(Map<String, dynamic> json) {
     return Producto(
       id: json['id']?.toString() ?? '0',
-      nombre: json['nombre']?.toString() ?? '',
-      categoria: json['categoria']?.toString() ?? '',
+      nombre: (json['Nombre'] ?? json['nombre'])?.toString() ?? '',
+      categoria: (json['Categoria'] ?? json['categoria'])?.toString() ?? '',
       sku: json['sku']?.toString() ?? '',
-      cantidad: _parseInt(json['stock'] ?? json['cantidad']),
+      cantidad: _parseInt(json['stock_actual'] ?? json['stock'] ?? json['cantidad']),
       stockMinimo: _parseInt(json['stock_minimo']),
       ultimaActualizacion: json['ultima_actualizacion']?.toString() ?? '',
       sincronizado: json['sincronizado'] == true,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'nombre': nombre,
-      'categoria': categoria,
+  Map<String, dynamic> toJson({bool includeId = false}) {
+    final Map<String, dynamic> data = {
+      'Nombre': nombre,
+      'Categoria': categoria,
       'sku': sku,
-      'stock': cantidad,
+      'stock_actual': cantidad,
       'stock_minimo': stockMinimo,
       'ultima_actualizacion': ultimaActualizacion.isEmpty
           ? DateTime.now().toIso8601String()
           : ultimaActualizacion,
     };
+
+    if (includeId && id.isNotEmpty) {
+      final idValue = int.tryParse(id);
+      if (idValue != null && idValue > 0) {
+        data['id'] = idValue;
+      }
+    }
+
+    return data;
   }
 
   static int _parseInt(dynamic value) {
