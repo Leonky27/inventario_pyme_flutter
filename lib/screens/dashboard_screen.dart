@@ -325,20 +325,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         return Dismissible(
                           key: ValueKey('${prod.id}_${prod.sku}_$index'),
                           direction: DismissDirection.horizontal,
-                          onDismissed: (direction) {
+                          confirmDismiss: (direction) async {
+                            if (direction == DismissDirection.startToEnd) {
+                              // Editar: no descartar la tarjeta, abrir diálogo
+                              _editarProducto(prod);
+                              return false;
+                            }
+                            // Eliminar: pedir confirmación
+                            return await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: Text('Eliminar producto'),
+                                content: Text(
+                                  '¿Seguro que deseas eliminar "${prod.nombre}"? Esta acción no se puede deshacer.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: Text('Cancelar'),
+                                  ),
+                                  TextButton(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                    ),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: Text('Eliminar'),
+                                  ),
+                                ],
+                              ),
+                            ) ?? false;
+                          },
+                          onDismissed: (direction) async {
                             if (direction == DismissDirection.endToStart) {
-                              // Eliminar
+                              // Optimistic: quitar de la UI de inmediato
                               setState(() {
                                 productos.remove(prod);
                                 productosFiltrados.remove(prod);
                               });
-                              n8nService.eliminarProducto(prod.id);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Producto eliminado')),
-                              );
-                            } else if (direction == DismissDirection.startToEnd) {
-                              // Editar
-                              _editarProducto(prod);
+                              try {
+                                await n8nService.eliminarProducto(prod.id);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Producto eliminado correctamente')),
+                                  );
+                                }
+                              } catch (error) {
+                                // Restaurar el producto si n8n falla
+                                if (mounted) {
+                                  setState(() {
+                                    productos.add(prod);
+                                    productos.sort((a, b) => a.idNumeric.compareTo(b.idNumeric));
+                                    productosFiltrados = List.from(productos);
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: Colors.red,
+                                      content: Text('Error al eliminar: $error'),
+                                    ),
+                                  );
+                                }
+                              }
                             }
                           },
                           background: Container(

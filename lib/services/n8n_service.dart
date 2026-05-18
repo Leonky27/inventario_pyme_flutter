@@ -8,13 +8,13 @@ class N8nService {
   final String addProductUrl =
       'http://localhost:5678/webhook/crear-producto'; // Webhook para agregar nuevo producto
   final String updateProductUrl =
-      'https://stevenpajarol2.app.n8n.cloud/webhook/actualizar-producto'; // Webhook para actualizar producto
+      'http://localhost:5678/webhook/actualizar-producto'; // Webhook para actualizar producto
   final String deleteProductUrl =
-      'https://stevenpajarol2.app.n8n.cloud/webhook/eliminar-producto'; // Webhook para eliminar producto
+      'http://localhost:5678/webhook/eliminar-producto'; // Webhook para eliminar producto
   final String updateStockUrl =
-      'https://stevenpajarol2.app.n8n.cloud/webhook/inventario-pyme'; // Webhook para actualizar stock (entrada/salida)
+      'https://stevenpajarol2.app.n8n.cloud/webhook/inventario-pyme'; // Webhook para movimientos de stock
   final String getProductsUrl =
-      'http://localhost:5678/webhook/obtener-datos'; // Webhook para obtener productos del Sheet
+      'http://localhost:5678/webhook/obtener-datos'; // Webhook para obtener productos
 
   Future<List<Producto>> obtenerProductos() async {
     try {
@@ -71,7 +71,7 @@ class N8nService {
 
   Future<void> actualizarProducto(Producto producto) async {
     try {
-      final body = jsonEncode(producto.toJson());
+      final body = jsonEncode(producto.toJson(includeId: true));
       print('=================================');
       print('📤 ENVIANDO ACTUALIZACIÓN DE PRODUCTO A N8N');
       print('URL: $updateProductUrl');
