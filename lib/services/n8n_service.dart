@@ -12,7 +12,7 @@ class N8nService {
   final String deleteProductUrl =
       'http://localhost:5678/webhook/eliminar-producto'; // Webhook para eliminar producto
   final String updateStockUrl =
-      'https://stevenpajarol2.app.n8n.cloud/webhook/inventario-pyme'; // Webhook para movimientos de stock
+      'http://localhost:5678/webhook/movimientos'; // Webhook para movimientos de stock
   final String getProductsUrl =
       'http://localhost:5678/webhook/obtener-datos'; // Webhook para obtener productos
 
