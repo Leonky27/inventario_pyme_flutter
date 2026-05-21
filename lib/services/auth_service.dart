@@ -10,8 +10,8 @@ class AuthService {
   Usuario? currentUser;
 
   // Reemplaza estas URLs con los webhooks reales de n8n
-  final String loginUrl = 'http://localhost:5678/webhook/login';
-  final String registerUrl = 'http://localhost:5678/webhook/register';
+  final String loginUrl = 'https://n8n-services.app.n8n.cloud/webhook/login';
+  final String registerUrl = 'https://n8n-services.app.n8n.cloud/webhook/register';
 
   Future<bool> login(String usernameOrEmail, String password) async {
     try {

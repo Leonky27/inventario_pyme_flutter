@@ -1,20 +1,29 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/producto.dart';
+import '../models/movimiento_historial.dart';
 import 'auth_service.dart';
 
 class N8nService {
-  // Reemplaza con tus URLs reales de n8n
+  // ─── URLs de webhooks n8n ───────────────────────────────────────────────────
+  // Reemplaza cada URL con el webhook real de tu instancia n8n.
   final String addProductUrl =
-      'http://localhost:5678/webhook/crear-producto'; // Webhook para agregar nuevo producto
+      'https://n8n-services.app.n8n.cloud/webhook/crear-producto';
   final String updateProductUrl =
-      'http://localhost:5678/webhook/actualizar-producto'; // Webhook para actualizar producto
+      'https://n8n-services.app.n8n.cloud/webhook/actualizar-producto';
   final String deleteProductUrl =
-      'http://localhost:5678/webhook/eliminar-producto'; // Webhook para eliminar producto
+      'https://n8n-services.app.n8n.cloud/webhook/eliminar-producto';
   final String updateStockUrl =
-      'http://localhost:5678/webhook/movimientos'; // Webhook para movimientos de stock
+      'https://n8n-services.app.n8n.cloud/webhook/movimientos';
   final String getProductsUrl =
-      'http://localhost:5678/webhook/obtener-datos'; // Webhook para obtener productos
+      'https://n8n-services.app.n8n.cloud/webhook/obtener-datos';
+
+  /// ⬇️  REEMPLAZA con tu webhook de n8n para consultar el historial.
+  /// El workflow debe devolver una lista de movimientos con los campos:
+  ///   productoNombre (o producto_nombre / nombre), sku, tipo (o accion),
+  ///   cantidad, fecha
+  final String getHistorialUrl =
+      'https://n8n-services.app.n8n.cloud/webhook/historial-movimientos';
 
   Future<List<Producto>> obtenerProductos() async {
     try {
@@ -73,7 +82,7 @@ class N8nService {
     try {
       final body = jsonEncode(producto.toJson(includeId: true));
       print('=================================');
-      print('📤 ENVIANDO ACTUALIZACIÓN DE PRODUCTO A N8N');
+      print('📤 ENVIANDO ACTUALIZACIÓN DE PRODUCTO');
       print('URL: $updateProductUrl');
       print('PAYLOAD: $body');
       print('=================================');
@@ -85,7 +94,7 @@ class N8nService {
       );
 
       print('=================================');
-      print('📥 RESPUESTA DE N8N');
+      print('📥 RESPUESTA');
       print('Status: ${response.statusCode}');
       print('Body: ${response.body}');
       print('=================================');
@@ -122,7 +131,7 @@ class N8nService {
       );
 
       print('=================================');
-      print('📥 RESPUESTA DE N8N');
+      print('📥 RESPUESTA');
       print('Status: ${response.statusCode}');
       print('Body: ${response.body}');
       print('=================================');
@@ -164,14 +173,14 @@ class N8nService {
     try {
       final url = '$deleteProductUrl?id=$id';
       print('=================================');
-      print('📤 ENVIANDO ELIMINACIÓN DE PRODUCTO A N8N');
+      print('📤 ENVIANDO ELIMINACIÓN DE PRODUCTO');
       print('URL: $url');
       print('=================================');
 
       final response = await http.delete(Uri.parse(url));
 
       print('=================================');
-      print('📥 RESPUESTA DE N8N');
+      print('📥 RESPUESTA');
       print('Status: ${response.statusCode}');
       print('Body: ${response.body}');
       print('=================================');
@@ -185,12 +194,36 @@ class N8nService {
     }
   }
 
+  /// Obtiene el historial de movimientos desde n8n.
+  Future<List<MovimientoHistorial>> obtenerHistorial() async {
+    try {
+      print('📤 OBTENIENDO HISTORIAL');
+      print('URL: $getHistorialUrl');
+
+      final response = await http.get(Uri.parse(getHistorialUrl));
+
+      print('📥 RESPUESTA HISTORIAL (${response.statusCode}): ${response.body}');
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        final List<dynamic> rows = _extractRows(body);
+        return rows
+            .map((json) =>
+                MovimientoHistorial.fromJson(json as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw Exception(
+            'Error al obtener historial: HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ ERROR EN OBTENER HISTORIAL: $e');
+      rethrow;
+    }
+  }
+
   Future<List<String>> obtenerErrores() async {
-    // Simular o agregar webhook si es necesario
     return ['Fila borrada en Sheets: Producto X'];
   }
 
-  Future<void> resolverError(String error) async {
-    // Lógica para resolver, e.g., llamar a webhook de restauración
-  }
+  Future<void> resolverError(String error) async {}
 }
